@@ -1,0 +1,1 @@
+<annotation><folder>VOC</folder><filename>0092_371.bmp</filename><size><width>512</width><height>512</height><depth>3</depth></size><object><name>nodule</name><bndbox><xmin>172</xmin><ymin>312</ymin><xmax>193</xmax><ymax>332</ymax></bndbox></object></annotation>
