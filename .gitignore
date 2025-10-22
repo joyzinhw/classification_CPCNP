@@ -1,26 +1,7 @@
-/augment_img_rotate/0
-/augment_img_rotate/1
-/augment_img_rotate/2
-/dataset
-/BMP_classification/test/0
-/BMP_classification/test/1
-/BMP_classification/test/2
-/BMP_classification/train/0
-/BMP_classification/train/1
-/BMP_classification/train/2
-dataset-balanceado/test/0
-dataset-balanceado/test/1
-dataset-balanceado/test/2
 
-dataset-balanceado/train/0
-dataset-balanceado/train/1
-dataset-balanceado/train/2
+/dataset/Images/0
+/dataset/Images/1
+/dataset/Images/2
 
-/dataset_segmentado/0
-/dataset_segmentado/1
-/dataset_segmentado/2
-/Comparison_2D
 
-/dataset_seg/0
-/dataset_seg/1
-/dataset_seg/2
+

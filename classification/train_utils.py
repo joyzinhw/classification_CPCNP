@@ -19,17 +19,16 @@ from sklearn.metrics import cohen_kappa_score as kappa
 import matplotlib.pyplot as plt
 
 
-def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler):
+def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler, criterion=None):
     model.train()
-    loss_function = nn.CrossEntropyLoss()
+    if criterion is None:
+        criterion = nn.CrossEntropyLoss()
+        
     accu_loss = torch.zeros(1).to(device)
     accu_num = torch.zeros(1).to(device)
     optimizer.zero_grad()
 
     sample_num = 0
-    # avg_kappa = 0.0
-    all_kappa = 0.0
-
     y_true_list = []
     y_pred_list = []
 
@@ -38,26 +37,21 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler):
         images, labels = data
         sample_num += images.shape[0]
 
-        pred = model(images.to(device))
+        images, labels = images.to(device), labels.to(device)
+
+        pred = model(images)
         pred_classes = torch.max(pred, dim=1)[1]
 
-        accu_num += torch.eq(pred_classes, labels.to(device)).sum()
+        accu_num += torch.eq(pred_classes, labels).sum()
 
-        loss = loss_function(pred, labels.to(device))
+        loss = criterion(pred, labels)
         loss.backward()
         accu_loss += loss.detach()
 
         pred_classes = pred_classes.cpu()
         labels = labels.cpu()
-        y_pred = np.array(pred_classes)
-        y_label = np.array(labels)
-        y_pred = list(y_pred)
-        y_true = list(y_label)
-        y_true_list.append(y_true)
-        y_pred_list.append(y_pred)
-
-        # avg_kappa += train_kappa
-        # avg_train_acc += accu_num.item() / sample_num
+        y_pred_list.append(pred_classes.numpy().tolist())
+        y_true_list.append(labels.numpy().tolist())
 
         data_loader.desc = "[train epoch {}] loss: {:.4f}, acc: {:.4f}, lr: {:.7f}".format(
             epoch,
@@ -72,10 +66,9 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler):
 
         optimizer.step()
         optimizer.zero_grad()
-        # update lr
-        lr_scheduler.step()
+        if lr_scheduler is not None:
+            lr_scheduler.step()
 
-    # print(all_kappa)
     predd = sum(y_pred_list, [])
     truee = sum(y_true_list, [])
     train_kappa = kappa(predd, truee)
@@ -85,16 +78,14 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler):
 
 
 @torch.no_grad()
-def evaluate(model, data_loader, device, epoch):
-    loss_function = nn.CrossEntropyLoss()
-
+def evaluate(model, data_loader, device, epoch, criterion=None):
+    if criterion is None:
+        criterion = nn.CrossEntropyLoss()
+        
     model.eval()
-
     accu_num = torch.zeros(1).to(device)
     accu_loss = torch.zeros(1).to(device)
-
     sample_num = 0
-    all_val_kappa = 0.0
 
     y_true_list = []
     y_pred_list = []
@@ -104,21 +95,19 @@ def evaluate(model, data_loader, device, epoch):
         images, labels = data
         sample_num += images.shape[0]
 
-        pred = model(images.to(device))
-        pred_classes = torch.max(pred, dim=1)[1]
-        accu_num += torch.eq(pred_classes, labels.to(device)).sum()
+        images, labels = images.to(device), labels.to(device)
 
-        loss = loss_function(pred, labels.to(device))
+        pred = model(images)
+        pred_classes = torch.max(pred, dim=1)[1]
+
+        accu_num += torch.eq(pred_classes, labels).sum()
+        loss = criterion(pred, labels)
         accu_loss += loss
 
         pred_classes = pred_classes.cpu()
         labels = labels.cpu()
-        y_pred = np.array(pred_classes)
-        y_label = np.array(labels)
-        y_pred = list(y_pred)
-        y_true = list(y_label)
-        y_true_list.append(y_true)
-        y_pred_list.append(y_pred)
+        y_pred_list.append(pred_classes.numpy().tolist())
+        y_true_list.append(labels.numpy().tolist())
 
         data_loader.desc = "[valid epoch {}] loss: {:.4f}, acc: {:.4f}".format(
             epoch,
@@ -129,6 +118,7 @@ def evaluate(model, data_loader, device, epoch):
     predd = sum(y_pred_list, [])
     truee = sum(y_true_list, [])
     val_kappa = kappa(predd, truee)
+
     print("single_val_kappa = %.4f" % val_kappa)
     return accu_loss.item() / (step + 1), accu_num.item() / sample_num, val_kappa, truee, predd
 
@@ -179,3 +169,4 @@ def get_params_groups(model: torch.nn.Module, weight_decay: float = 1e-5):
 
     print("Param groups = %s" % json.dumps(parameter_group_names, indent=2))
     return list(parameter_group_vars.values())
+
