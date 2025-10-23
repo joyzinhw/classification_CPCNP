@@ -84,8 +84,8 @@ def segmentar_pulmao_melhorado(path_img):
 
     return mask_final, pulmao_segmentado, img_original, img_preprocessada
 
-def processar_pasta_unica(pasta_base="dataset/Image/0",
-                           pasta_saida="dataset_segmentado0",
+def processar_pasta_unica(pasta_base="dataset/Image/1",
+                           pasta_saida="dataset_segmentado/Image/1",
                            mostrar=True):
     if not os.path.exists(pasta_base):
         print(f"[!] A pasta {pasta_base} não existe!")
@@ -139,7 +139,7 @@ def processar_pasta_unica(pasta_base="dataset/Image/0",
 
 if __name__ == "__main__":
     processar_pasta_unica(
-        pasta_base="dataset/Image/0",
-        pasta_saida="dataset_segmentado0",
+        pasta_base="dataset/Image/1",
+        pasta_saida="dataset_segmentado/Image/1",
         mostrar=True
     )

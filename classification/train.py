@@ -1,3 +1,4 @@
+
 import torch.nn as nn
 from torchvision import transforms, datasets
 import json
@@ -19,7 +20,7 @@ import gc
 gc.collect()
 torch.cuda.empty_cache()
 
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, classification_report
 
 def main(args):
     os.environ["CUDA_VISIBLE_DEVICES"] = '0'
@@ -27,13 +28,12 @@ def main(args):
     print(f"Using device: {device}")
     tb_writer = SummaryWriter(log_dir="classfication_result/tensorboard_logs")
 
-    # ================= Data Augmentation =================
+    # -------------------------
+    # Transforms
+    # -------------------------
     data_transform = {
         "train": transforms.Compose([
             transforms.Resize((448, 448)),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomVerticalFlip(),
-            transforms.RandomRotation(degrees=30),  # ±30° em vez de 360°
             transforms.ToTensor(),
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ]),
@@ -41,19 +41,31 @@ def main(args):
             transforms.Resize((448, 448)),
             transforms.ToTensor(),
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+        ]),
+        "test": transforms.Compose([
+            transforms.Resize((448, 448)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ])
     }
 
+    # -------------------------
+    # Diretórios
+    # -------------------------
     train_dir = os.path.join("dataset/train")
-    val_dir = os.path.join("dataset/test")
+    val_dir = os.path.join("dataset/val")
+    test_dir = os.path.join("dataset/test")
 
-    if not os.path.isdir(train_dir):
-        raise FileNotFoundError(f"Diretório de treino não encontrado: {train_dir}")
-    if not os.path.isdir(val_dir):
-        raise FileNotFoundError(f"Diretório de validação não encontrado: {val_dir}")
+    for d in [train_dir, val_dir, test_dir]:
+        if not os.path.isdir(d):
+            raise FileNotFoundError(f"Diretório não encontrado: {d}")
 
+    # -------------------------
+    # Datasets
+    # -------------------------
     train_dataset = datasets.ImageFolder(root=train_dir, transform=data_transform["train"])
     val_dataset = datasets.ImageFolder(root=val_dir, transform=data_transform["val"])
+    test_dataset = datasets.ImageFolder(root=test_dir, transform=data_transform["test"])
 
     batch_size = args.batch_size
     num_workers = 0
@@ -61,34 +73,31 @@ def main(args):
 
     print("Train class distribution:", Counter([s[1] for s in train_dataset.samples]))
     print("Val class distribution:", Counter([s[1] for s in val_dataset.samples]))
+    print("Test class distribution:", Counter([s[1] for s in test_dataset.samples]))
 
+    # -------------------------
+    # DataLoaders
+    # -------------------------
     train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        pin_memory=False,
-        num_workers=num_workers
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
     )
-
     val_loader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        pin_memory=False,
-        num_workers=num_workers
+        val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+    )
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
     )
 
-    # ================= Model =================
+    # -------------------------
+    # Modelo
+    # -------------------------
     model = Res2Net(layers=[3, 4, 6, 3], num_classes=args.num_classes, width=16, scales=4, groups=1)
     model.to(device)
 
-    # ================= Optimizer & Scheduler =================
     pg = get_params_groups(model, weight_decay=args.wd)
     optimizer = optim.AdamW(pg, lr=args.lr, weight_decay=args.wd)
-    lr_scheduler = create_lr_scheduler(optimizer, len(train_loader), args.epochs,
-                                       warmup=True, warmup_epochs=10)
+    lr_scheduler = create_lr_scheduler(optimizer, len(train_loader), args.epochs, warmup=True, warmup_epochs=10)
 
-    # ================= Loss com pesos de classe =================
     train_labels = [s[1] for s in train_dataset.samples]
     class_counts = Counter(train_labels)
     weights = [1.0 / class_counts[i] for i in range(args.num_classes)]
@@ -99,8 +108,13 @@ def main(args):
     best_train_acc = 0.
     best_kappa = 0.
 
+    history = []
+
+    # -------------------------
+    # Loop de treinamento
+    # -------------------------
     for epoch in range(args.epochs):
-        # ================= Treino =================
+
         train_loss, train_acc, train_kappa1, train_truee, train_predd = train_one_epoch(
             model=model,
             optimizer=optimizer,
@@ -108,7 +122,7 @@ def main(args):
             device=device,
             epoch=epoch,
             lr_scheduler=lr_scheduler,
-            criterion=criterion  # Passando a loss ponderada
+            criterion=criterion
         )
         print(f"train_kappa= {train_kappa1:.4f}")
 
@@ -124,17 +138,15 @@ def main(args):
             plt.close()
             best_train_acc = train_acc
 
-        # ================= Validação =================
         val_loss, val_acc, val_kappa1, val_truee, val_predd = evaluate(
             model=model,
             data_loader=val_loader,
             device=device,
             epoch=epoch,
-            criterion=criterion  # Passando a loss ponderada
+            criterion=criterion
         )
         print(f"val_kappa= {val_kappa1:.4f}")
 
-        # ================= Tensorboard =================
         tb_writer.add_scalar("train_loss", train_loss, epoch)
         tb_writer.add_scalar("train_acc", train_acc, epoch)
         tb_writer.add_scalar("val_loss", val_loss, epoch)
@@ -143,11 +155,24 @@ def main(args):
         tb_writer.add_scalar("train_kappa", train_kappa1, epoch)
         tb_writer.add_scalar("val_kappa", val_kappa1, epoch)
 
-        # ================= Salvar melhor modelo baseado na Kappa =================
+        history.append({
+            "epoch": epoch,
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+            "train_acc": train_acc,
+            "val_acc": val_acc,
+            "train_kappa": train_kappa1,
+            "val_kappa": val_kappa1
+        })
+
+        checkpoint_path = f"classfication_result/epoch_{epoch:03d}_kappa{val_kappa1:.3f}.pth"
+        torch.save(model.state_dict(), checkpoint_path)
+        print(f"Checkpoint salvo: {checkpoint_path}")
+
         if best_kappa < val_kappa1:
-            save_path = "classfication_result/cancer_res2net.pth"
+            save_path = "classfication_result/cancer_res2net_best.pth"
             torch.save(model.state_dict(), save_path)
-            print(f"Model saved to {save_path}")
+            print(f"✅ Novo melhor modelo salvo em {save_path}")
 
             val_df = pd.DataFrame({'True label': val_truee, 'Predict label': val_predd})
             val_confmtpd = pd.crosstab(val_df['True label'], val_df['Predict label'], dropna=False)
@@ -155,7 +180,7 @@ def main(args):
             plt.figure()
             sn.heatmap(val_confmtpd, annot=True, cmap='Greens', fmt='d')
             plt.tight_layout()
-            plt.savefig('classfication_result/cancer_res2net_confusion_matrix.png')
+            plt.savefig('classfication_result/val_confusion_matrix.png')
             plt.close()
             best_kappa = val_kappa1
 
@@ -163,10 +188,38 @@ def main(args):
         print(f"best_val_acc = {val_acc:.4f}")
         print(f"best_val_kappa = {best_kappa:.4f}")
 
+        pd.DataFrame(history).to_csv("classfication_result/training_log.csv", index=False)
+
+    # -------------------------
+    # AVALIAÇÃO FINAL (TESTE)
+    # -------------------------
+    print("\n===== FINAL TEST EVALUATION =====")
+    model.load_state_dict(torch.load("classfication_result/cancer_res2net_best.pth", map_location=device))
+    model.eval()
+
+    test_loss, test_acc, test_kappa, test_true, test_pred = evaluate(
+        model=model,
+        data_loader=test_loader,
+        device=device,
+        epoch=args.epochs,
+        criterion=criterion
+    )
+
+    print(f"Test Accuracy: {test_acc:.4f}, Test Kappa: {test_kappa:.4f}")
+    print(classification_report(test_true, test_pred, target_names=test_dataset.classes))
+
+    test_df = pd.DataFrame({'True label': test_true, 'Predict label': test_pred})
+    test_confmtpd = pd.crosstab(test_df['True label'], test_df['Predict label'], dropna=False)
+    plt.figure()
+    sn.heatmap(test_confmtpd, annot=True, cmap='Blues', fmt='d')
+    plt.tight_layout()
+    plt.savefig('classfication_result/test_confusion_matrix.png')
+    plt.close()
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_classes', type=int, default=3)
-    parser.add_argument('--epochs', type=int, default=100)
+    parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--batch-size', type=int, default=4)
     parser.add_argument('--lr', type=float, default=2e-4)
     parser.add_argument('--wd', type=float, default=0.05)
