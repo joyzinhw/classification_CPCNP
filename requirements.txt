@@ -18,3 +18,5 @@ tqdm==4.64.0
 pycocotools==2.0.6
 google-drive
 torch
+
+#46	0.6072908036454018		0.5128153380423814	

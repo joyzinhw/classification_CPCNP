@@ -18,12 +18,11 @@ from sklearn.metrics import cohen_kappa_score as kappa
 
 import matplotlib.pyplot as plt
 
-
-def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler, criterion=None):
+def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler, criterion=None, return_probs=False):
     model.train()
     if criterion is None:
         criterion = nn.CrossEntropyLoss()
-        
+
     accu_loss = torch.zeros(1).to(device)
     accu_num = torch.zeros(1).to(device)
     optimizer.zero_grad()
@@ -31,28 +30,42 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler, 
     sample_num = 0
     y_true_list = []
     y_pred_list = []
+    y_prob_list = []   # probabilidade por batch
 
     data_loader = tqdm(data_loader, file=sys.stdout)
     for step, data in enumerate(data_loader):
+
         images, labels = data
         sample_num += images.shape[0]
 
         images, labels = images.to(device), labels.to(device)
 
-        pred = model(images)
-        pred_classes = torch.max(pred, dim=1)[1]
+        # FORWARD PASS (único)
+        out = model(images)
 
+        # Probabilidades sempre vêm daqui
+        probs = torch.softmax(out, dim=1)
+
+        # Previsões
+        pred_classes = torch.argmax(probs, dim=1)
+
+        # Métrica
         accu_num += torch.eq(pred_classes, labels).sum()
 
-        loss = criterion(pred, labels)
+        # Loss
+        loss = criterion(out, labels)
         loss.backward()
         accu_loss += loss.detach()
 
-        pred_classes = pred_classes.cpu()
-        labels = labels.cpu()
-        y_pred_list.append(pred_classes.numpy().tolist())
-        y_true_list.append(labels.numpy().tolist())
+        # Salvar dados no CPU
+        y_pred_list.append(pred_classes.cpu().numpy().tolist())
+        y_true_list.append(labels.cpu().numpy().tolist())
 
+        # Salvar probabilidades somente se usuário pediu
+        if return_probs:
+            y_prob_list.append(probs.detach().cpu().numpy())
+
+        # Atualizar barra
         data_loader.desc = "[train epoch {}] loss: {:.4f}, acc: {:.4f}, lr: {:.7f}".format(
             epoch,
             accu_loss.item() / (step + 1),
@@ -60,21 +73,98 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler, 
             optimizer.param_groups[0]["lr"]
         )
 
+        # Verificação
         if not torch.isfinite(loss):
-            print('WARNING: non-finite loss, ending training ', loss)
+            print("WARNING: non-finite loss, ending training", loss)
             sys.exit(1)
 
+        # UPDATE
         optimizer.step()
         optimizer.zero_grad()
-        if lr_scheduler is not None:
+        if lr_scheduler:
             lr_scheduler.step()
 
+    # Flatten listas
     predd = sum(y_pred_list, [])
     truee = sum(y_true_list, [])
     train_kappa = kappa(predd, truee)
 
-    print("single_epoch_train_kappa = %.4f" % train_kappa)
-    return accu_loss.item() / (step + 1), accu_num.item() / sample_num, train_kappa, truee, predd
+    # Retornar probabilidades
+    if return_probs:
+        probs_final = np.concatenate(y_prob_list, axis=0)
+        return (
+            accu_loss.item() / (step + 1),
+            accu_num.item() / sample_num,
+            train_kappa,
+            truee,
+            predd,
+            probs_final
+        )
+
+    return (
+        accu_loss.item() / (step + 1),
+        accu_num.item() / sample_num,
+        train_kappa,
+        truee,
+        predd
+    )
+
+# def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler, criterion=None):
+#     model.train()
+#     if criterion is None:
+#         criterion = nn.CrossEntropyLoss()
+        
+#     accu_loss = torch.zeros(1).to(device)
+#     accu_num = torch.zeros(1).to(device)
+#     optimizer.zero_grad()
+
+#     sample_num = 0
+#     y_true_list = []
+#     y_pred_list = []
+
+#     data_loader = tqdm(data_loader, file=sys.stdout)
+#     for step, data in enumerate(data_loader):
+#         images, labels = data
+#         sample_num += images.shape[0]
+
+#         images, labels = images.to(device), labels.to(device)
+
+#         pred = model(images)
+#         pred_classes = torch.max(pred, dim=1)[1]
+
+#         accu_num += torch.eq(pred_classes, labels).sum()
+
+#         loss = criterion(pred, labels)
+#         loss.backward()
+#         accu_loss += loss.detach()
+
+#         pred_classes = pred_classes.cpu()
+#         labels = labels.cpu()
+#         y_pred_list.append(pred_classes.numpy().tolist())
+#         y_true_list.append(labels.numpy().tolist())
+
+#         data_loader.desc = "[train epoch {}] loss: {:.4f}, acc: {:.4f}, lr: {:.7f}".format(
+#             epoch,
+#             accu_loss.item() / (step + 1),
+#             accu_num.item() / sample_num,
+#             optimizer.param_groups[0]["lr"]
+#         )
+
+#         if not torch.isfinite(loss):
+#             print('WARNING: non-finite loss, ending training ', loss)
+#             sys.exit(1)
+
+#         optimizer.step()
+#         optimizer.zero_grad()
+#         if lr_scheduler is not None:
+#             lr_scheduler.step()
+
+#     predd = sum(y_pred_list, [])
+#     truee = sum(y_true_list, [])
+#     train_kappa = kappa(predd, truee)
+
+#     print("single_epoch_train_kappa = %.4f" % train_kappa)
+#     return accu_loss.item() / (step + 1), accu_num.item() / sample_num, train_kappa, truee, predd
 
 
 @torch.no_grad()

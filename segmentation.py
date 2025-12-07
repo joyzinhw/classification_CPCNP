@@ -125,14 +125,14 @@ def processar_pasta_unica(pasta_base="dataset/Image/1",
             
             print(f"[✓] Salvo: {path_mascara} e {path_pulmao}")
             
-            # if mostrar:
-            #     plt.figure(figsize=(12,4))
-            #     plt.subplot(1,4,1); plt.imshow(img_original, cmap='gray'); plt.title("Original"); plt.axis('off')
-            #     plt.subplot(1,4,2); plt.imshow(img_preprocessada, cmap='gray'); plt.title("Pré-processada"); plt.axis('off')
-            #     plt.subplot(1,4,3); plt.imshow(mascara, cmap='gray'); plt.title("Máscara"); plt.axis('off')
-            #     plt.subplot(1,4,4); plt.imshow(pulmao_segmentado, cmap='gray'); plt.title("Pulmão Segmentado"); plt.axis('off')
-            #     plt.tight_layout()
-            #     plt.show()
+            if mostrar:
+                plt.figure(figsize=(12,4))
+                plt.subplot(1,4,1); plt.imshow(img_original, cmap='gray'); plt.title("Original"); plt.axis('off')
+                plt.subplot(1,4,2); plt.imshow(img_preprocessada, cmap='gray'); plt.title("Pré-processada"); plt.axis('off')
+                plt.subplot(1,4,3); plt.imshow(mascara, cmap='gray'); plt.title("Máscara"); plt.axis('off')
+                plt.subplot(1,4,4); plt.imshow(pulmao_segmentado, cmap='gray'); plt.title("Pulmão Segmentado"); plt.axis('off')
+                plt.tight_layout()
+                plt.show()
                 
         except Exception as e:
             print(f"[!] Erro ao processar {nome_arquivo}: {e}")
