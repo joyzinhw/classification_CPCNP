@@ -1,143 +1,252 @@
 import os
-import cv2
 import numpy as np
-import xml.etree.ElementTree as ET
+import nibabel as nib
+import pandas as pd
+import cv2
+from tqdm import tqdm
+from collections import defaultdict
 
-# Diretórios
-img_root = "dataset/fatias"
-anno_dir = "dataset/label"
-output_root = "Nodules"
+BASE = "Dados_Macro"
+OUT  = "NODULES"
 
-os.makedirs(output_root, exist_ok=True)
-count_per_folder = {}
+MACROS_VALIDOS = [
+    "Adenocarcinoma (NSCLC)",
+    "Carcinoma Escamoso (NSCLC)",
+    "Outros NSCLC"
+]
 
-xml_sem_imagem = []
-img_sem_nodulos = []
+os.makedirs(OUT, exist_ok=True)
 
-# Extensões possíveis
-exts = [".bmp", ".png", ".jpg", ".jpeg"]
+label_df = pd.read_excel("Label.xlsx")
+label_df.columns = label_df.columns.str.strip()
+label_df = label_df[label_df["labels_type"] == 1]
 
-# Percorre todos os arquivos XML
-for xml_file in os.listdir(anno_dir):
-    if not xml_file.endswith(".xml"):
-        continue
 
-    xml_path = os.path.join(anno_dir, xml_file)
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
+def normalize_ct(img):
+    img = np.clip(img, -1000, 400)
+    img = (img + 1000) / 1400
+    return (img * 255).astype(np.uint8)
 
-    filename_base = root.find("filename").text.strip()  # sem extensão
 
-    img_path = None
-    current_folder = None
+def unsharp_mask(img):
+    blur = cv2.GaussianBlur(img, (5, 5), 1.0)
+    return cv2.addWeighted(img, 1.5, blur, -0.5, 0)
 
-    # Procura em todas as subpastas 1..6
-    for subdir in os.listdir(img_root):
-        folder_path = os.path.join(img_root, subdir)
-        if not os.path.isdir(folder_path):
+
+def pad_to_patch(img, patch_size):
+
+    h, w = img.shape
+
+    canvas = np.zeros((patch_size, patch_size), dtype=img.dtype)
+
+    y_offset = (patch_size - h) // 2
+    x_offset = (patch_size - w) // 2
+
+    canvas[y_offset:y_offset+h, x_offset:x_offset+w] = img
+
+    return canvas
+
+
+def find_max_nodule_size():
+
+    max_size = 0
+
+    max_info = {
+        "pid": None,
+        "macro": None,
+        "label": None,
+        "slice": None,
+        "width": 0,
+        "height": 0
+    }
+
+    for macro in MACROS_VALIDOS:
+
+        macro_dir = os.path.join(BASE, macro)
+        if not os.path.isdir(macro_dir):
             continue
 
-        # Procurar por cada extensão possível
-        for ext in exts:
-            possible = os.path.join(folder_path, filename_base + ext)
-            if os.path.exists(possible):
-                img_path = possible
-                current_folder = subdir
-                output_dir = os.path.join(output_root, subdir)
-                os.makedirs(output_dir, exist_ok=True)
-                break
+        ids = [p for p in os.listdir(macro_dir) if p.isdigit()]
 
-        if img_path is not None:
-            break
+        for pid in tqdm(ids, desc=f"Scanning {macro}"):
 
-    if img_path is None:
-        print("XML sem imagem correspondente:", xml_file)
-        xml_sem_imagem.append(xml_file)
+            pid_int = int(pid)
+            folder = os.path.join(macro_dir, pid)
+
+            tumor_path = os.path.join(folder, f"{pid}_tumor.nii.gz")
+
+            if not os.path.exists(tumor_path):
+                continue
+
+            try:
+                mask = nib.load(tumor_path).get_fdata().astype(np.int32)
+            except:
+                continue
+
+            labels_pid = label_df[label_df["ID"] == pid_int]["Mark_labels"].tolist()
+
+            for lab in labels_pid:
+
+                slices_z = np.where(np.any(mask == lab, axis=(0,1)))[0]
+
+                for z in slices_z:
+
+                    slice_mask = mask[:,:,z]
+                    nodule_mask = (slice_mask == lab)
+
+                    if not np.any(nodule_mask):
+                        continue
+
+                    coords = np.column_stack(np.where(nodule_mask))
+
+                    y_min, x_min = coords.min(axis=0)
+                    y_max, x_max = coords.max(axis=0)
+
+                    h = y_max - y_min
+                    w = x_max - x_min
+
+                    size = max(h, w)
+
+                    if size > max_size:
+
+                        max_size = size
+
+                        max_info = {
+                            "pid": pid,
+                            "macro": macro,
+                            "label": lab,
+                            "slice": z,
+                            "width": w,
+                            "height": h
+                        }
+
+    return max_size, max_info
+
+
+print("\nCalculando maior nódulo do dataset...\n")
+
+PATCH_SIZE, max_info = find_max_nodule_size()
+
+print("\nMaior nódulo encontrado:")
+print("Paciente ID:", max_info["pid"])
+print("Categoria:", max_info["macro"])
+print("Label do nódulo:", max_info["label"])
+print("Slice:", max_info["slice"])
+print("Largura:", max_info["width"])
+print("Altura:", max_info["height"])
+
+print("\nTodos os patches terão tamanho:", PATCH_SIZE, "x", PATCH_SIZE)
+
+
+resumo = defaultdict(lambda: {"pacientes": set(), "fatias": 0})
+corrupted_files = []
+
+for macro in MACROS_VALIDOS:
+
+    macro_dir = os.path.join(BASE, macro)
+    if not os.path.isdir(macro_dir):
         continue
 
-    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        print("Falha ao abrir imagem:", img_path)
-        xml_sem_imagem.append(xml_file)
-        continue
+    ids = [p for p in os.listdir(macro_dir) if p.isdigit()]
 
-    objetos = root.findall("object")
-    if len(objetos) == 0:
-        print("XML sem nodulos:", xml_file)
-        img_sem_nodulos.append(filename_base)
-        continue
+    for pid in tqdm(ids, desc=f"Extraindo {macro}", leave=False):
 
-    nodulos_extraidos = 0
+        pid_int = int(pid)
+        folder = os.path.join(macro_dir, pid)
 
-    for i, obj in enumerate(objetos):
-        bbox = obj.find("bndbox")
+        ct_path    = os.path.join(folder, f"{pid}_CT.nii.gz")
+        tumor_path = os.path.join(folder, f"{pid}_tumor.nii.gz")
+
+        if not os.path.exists(ct_path) or not os.path.exists(tumor_path):
+            continue
 
         try:
-            xmin = int(bbox.find("xmin").text)
-            ymin = int(bbox.find("ymin").text)
-            xmax = int(bbox.find("xmax").text)
-            ymax = int(bbox.find("ymax").text)
-        except:
-            print("Erro de coordenadas no XML:", xml_file)
-            img_sem_nodulos.append(filename_base)
+            ct   = nib.load(ct_path).get_fdata()
+            mask = nib.load(tumor_path).get_fdata().astype(np.int32)
+        except Exception:
+            corrupted_files.append(pid)
             continue
 
-        roi = img[ymin:ymax, xmin:xmax]
-
-        if roi.size == 0:
-            print("ROI vazia:", filename_base, "nodulo", i)
-            img_sem_nodulos.append(filename_base)
+        if ct.shape != mask.shape or ct.ndim != 3:
             continue
 
-        # --- Segmentação automática ---
-        _, mask = cv2.threshold(roi, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        labels_pid = label_df[label_df["ID"] == pid_int]["Mark_labels"].tolist()
+        if len(labels_pid) == 0:
+            continue
 
-        # Remove ruído pequeno
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2,2))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        out_dir = os.path.join(OUT, macro, pid)
+        os.makedirs(out_dir, exist_ok=True)
 
-        # Fecha buracos
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        resumo[(macro, "GERAL")]["pacientes"].add(pid)
 
-        # Mantém maior contorno
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            largest = max(contours, key=cv2.contourArea)
-            precise_mask = np.zeros_like(roi)
-            cv2.drawContours(precise_mask, [largest], -1, 255, thickness=-1)
-        else:
-            precise_mask = np.zeros_like(roi)
+        for tumor_idx, lab in enumerate(labels_pid, start=1):
 
-        # Aplica máscara
-        masked = cv2.bitwise_and(roi, roi, mask=precise_mask)
+            slices_z = np.where(np.any(mask == lab, axis=(0,1)))[0]
+            if len(slices_z) == 0:
+                continue
 
-        # Normaliza para 0-255
-        if masked.max() > 0:
-            masked = ((masked - masked.min()) / (masked.max() - masked.min()) * 255).astype(np.uint8)
+            for z in slices_z:
 
-        # Redimensiona para 64x64
-        patch64 = cv2.resize(masked, (64, 64), interpolation=cv2.INTER_AREA)
+                slice_ct   = ct[:,:,z]
+                slice_mask = mask[:,:,z]
 
-        # Salva nódulo com _seg no final, sem numeração
-        save_name = f"{filename_base}_seg.bmp"
-        save_path = os.path.join(output_root, current_folder, save_name)
-        cv2.imwrite(save_path, patch64)
+                nodule_mask = (slice_mask == lab)
 
-        nodulos_extraidos += 1
-        count_per_folder[current_folder] = count_per_folder.get(current_folder, 0) + 1
+                if not np.any(nodule_mask):
+                    continue
 
-    if nodulos_extraidos == 0:
-        img_sem_nodulos.append(filename_base)
+                norm = normalize_ct(slice_ct)
 
-# 🟦 RESULTADOS FINAIS
-print("\nTotais por pasta:")
-for folder, count in sorted(count_per_folder.items()):
-    print(folder + ":", count)
+                coords = np.column_stack(np.where(nodule_mask))
 
-print("\nXML sem imagem correspondente:")
-for f in xml_sem_imagem:
-    print(f)
+                y_min, x_min = coords.min(axis=0)
+                y_max, x_max = coords.max(axis=0)
 
-print("\nImagens sem nodulos extraídos:")
-for f in set(img_sem_nodulos):
-    print(f)
+                crop_img  = norm[y_min:y_max, x_min:x_max]
+                crop_mask = nodule_mask[y_min:y_max, x_min:x_max]
+
+                masked = np.zeros_like(crop_img, dtype=np.uint8)
+                masked[crop_mask] = crop_img[crop_mask]
+
+                final = pad_to_patch(masked, PATCH_SIZE)
+
+                final = unsharp_mask(final)
+
+                fname = f"{pid}_{tumor_idx}_{z}.png"
+
+                cv2.imwrite(os.path.join(out_dir, fname), final)
+
+                resumo[(macro, "GERAL")]["fatias"] += 1
+
+
+print("-" * 85)
+print(f"{'Categoria Macro':<30} | {'Pacientes':<10} | {'Fatias 2D':<10}")
+print("-" * 85)
+
+total_p = 0
+total_f = 0
+
+for (macro, _), v in sorted(resumo.items()):
+
+    pac = len(v["pacientes"])
+    fat = v["fatias"]
+
+    total_p += pac
+    total_f += fat
+
+    print(f"{macro[:30]:<30} | {pac:<10} | {fat:<10}")
+
+print("-" * 85)
+
+print("\nMaior nódulo do dataset:")
+print("Paciente:", max_info["pid"])
+print("Categoria:", max_info["macro"])
+print("Label:", max_info["label"])
+print("Slice:", max_info["slice"])
+print("Largura:", max_info["width"])
+print("Altura:", max_info["height"])
+
+print("\nTamanho final de todos os patches:", PATCH_SIZE, "x", PATCH_SIZE)
+
+if corrupted_files:
+    print("Arquivos corrompidos:", corrupted_files)

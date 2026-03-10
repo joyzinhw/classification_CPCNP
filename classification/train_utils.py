@@ -1,262 +1,111 @@
-import os
-import sys
-import json
-import pickle
-import random
-import math
-import pandas as pd
-import seaborn as sn
-import numpy as np
-import torch.nn as nn
-
 import torch
+import numpy as np
 from tqdm import tqdm
-from sklearn.metrics import cohen_kappa_score as kappa
-
-
-
-
-import matplotlib.pyplot as plt
-
-def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler, criterion=None, return_probs=False):
-    model.train()
-    if criterion is None:
-        criterion = nn.CrossEntropyLoss()
-
-    accu_loss = torch.zeros(1).to(device)
-    accu_num = torch.zeros(1).to(device)
-    optimizer.zero_grad()
-
-    sample_num = 0
-    y_true_list = []
-    y_pred_list = []
-    y_prob_list = []   # probabilidade por batch
-
-    data_loader = tqdm(data_loader, file=sys.stdout)
-    for step, data in enumerate(data_loader):
-
-        images, labels = data
-        sample_num += images.shape[0]
-
-        images, labels = images.to(device), labels.to(device)
-
-        # FORWARD PASS (único)
-        out = model(images)
-
-        # Probabilidades sempre vêm daqui
-        probs = torch.softmax(out, dim=1)
-
-        # Previsões
-        pred_classes = torch.argmax(probs, dim=1)
-
-        # Métrica
-        accu_num += torch.eq(pred_classes, labels).sum()
-
-        # Loss
-        loss = criterion(out, labels)
-        loss.backward()
-        accu_loss += loss.detach()
-
-        # Salvar dados no CPU
-        y_pred_list.append(pred_classes.cpu().numpy().tolist())
-        y_true_list.append(labels.cpu().numpy().tolist())
-
-        # Salvar probabilidades somente se usuário pediu
-        if return_probs:
-            y_prob_list.append(probs.detach().cpu().numpy())
-
-        # Atualizar barra
-        data_loader.desc = "[train epoch {}] loss: {:.4f}, acc: {:.4f}, lr: {:.7f}".format(
-            epoch,
-            accu_loss.item() / (step + 1),
-            accu_num.item() / sample_num,
-            optimizer.param_groups[0]["lr"]
-        )
-
-        # Verificação
-        if not torch.isfinite(loss):
-            print("WARNING: non-finite loss, ending training", loss)
-            sys.exit(1)
-
-        # UPDATE
-        optimizer.step()
-        optimizer.zero_grad()
-        if lr_scheduler:
-            lr_scheduler.step()
-
-    # Flatten listas
-    predd = sum(y_pred_list, [])
-    truee = sum(y_true_list, [])
-    train_kappa = kappa(predd, truee)
-
-    # Retornar probabilidades
-    if return_probs:
-        probs_final = np.concatenate(y_prob_list, axis=0)
-        return (
-            accu_loss.item() / (step + 1),
-            accu_num.item() / sample_num,
-            train_kappa,
-            truee,
-            predd,
-            probs_final
-        )
-
-    return (
-        accu_loss.item() / (step + 1),
-        accu_num.item() / sample_num,
-        train_kappa,
-        truee,
-        predd
-    )
-
-# def train_one_epoch(model, optimizer, data_loader, device, epoch, lr_scheduler, criterion=None):
-#     model.train()
-#     if criterion is None:
-#         criterion = nn.CrossEntropyLoss()
-        
-#     accu_loss = torch.zeros(1).to(device)
-#     accu_num = torch.zeros(1).to(device)
-#     optimizer.zero_grad()
-
-#     sample_num = 0
-#     y_true_list = []
-#     y_pred_list = []
-
-#     data_loader = tqdm(data_loader, file=sys.stdout)
-#     for step, data in enumerate(data_loader):
-#         images, labels = data
-#         sample_num += images.shape[0]
-
-#         images, labels = images.to(device), labels.to(device)
-
-#         pred = model(images)
-#         pred_classes = torch.max(pred, dim=1)[1]
-
-#         accu_num += torch.eq(pred_classes, labels).sum()
-
-#         loss = criterion(pred, labels)
-#         loss.backward()
-#         accu_loss += loss.detach()
-
-#         pred_classes = pred_classes.cpu()
-#         labels = labels.cpu()
-#         y_pred_list.append(pred_classes.numpy().tolist())
-#         y_true_list.append(labels.numpy().tolist())
-
-#         data_loader.desc = "[train epoch {}] loss: {:.4f}, acc: {:.4f}, lr: {:.7f}".format(
-#             epoch,
-#             accu_loss.item() / (step + 1),
-#             accu_num.item() / sample_num,
-#             optimizer.param_groups[0]["lr"]
-#         )
-
-#         if not torch.isfinite(loss):
-#             print('WARNING: non-finite loss, ending training ', loss)
-#             sys.exit(1)
-
-#         optimizer.step()
-#         optimizer.zero_grad()
-#         if lr_scheduler is not None:
-#             lr_scheduler.step()
-
-#     predd = sum(y_pred_list, [])
-#     truee = sum(y_true_list, [])
-#     train_kappa = kappa(predd, truee)
-
-#     print("single_epoch_train_kappa = %.4f" % train_kappa)
-#     return accu_loss.item() / (step + 1), accu_num.item() / sample_num, train_kappa, truee, predd
-
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    roc_auc_score,
+    confusion_matrix,
+    cohen_kappa_score
+)
 
 @torch.no_grad()
-def evaluate(model, data_loader, device, epoch, criterion=None):
-    if criterion is None:
-        criterion = nn.CrossEntropyLoss()
-        
+def evaluate_slice_level(model, data_loader, device, num_classes=3):
+
+
     model.eval()
-    accu_num = torch.zeros(1).to(device)
-    accu_loss = torch.zeros(1).to(device)
-    sample_num = 0
 
-    y_true_list = []
-    y_pred_list = []
-
-    data_loader = tqdm(data_loader, file=sys.stdout)
-    for step, data in enumerate(data_loader):
-        images, labels = data
-        sample_num += images.shape[0]
-
-        images, labels = images.to(device), labels.to(device)
-
-        pred = model(images)
-        pred_classes = torch.max(pred, dim=1)[1]
-
-        accu_num += torch.eq(pred_classes, labels).sum()
-        loss = criterion(pred, labels)
-        accu_loss += loss
-
-        pred_classes = pred_classes.cpu()
-        labels = labels.cpu()
-        y_pred_list.append(pred_classes.numpy().tolist())
-        y_true_list.append(labels.numpy().tolist())
-
-        data_loader.desc = "[valid epoch {}] loss: {:.4f}, acc: {:.4f}".format(
-            epoch,
-            accu_loss.item() / (step + 1),
-            accu_num.item() / sample_num,
-        )
-
-    predd = sum(y_pred_list, [])
-    truee = sum(y_true_list, [])
-    val_kappa = kappa(predd, truee)
-
-    print("single_val_kappa = %.4f" % val_kappa)
-    return accu_loss.item() / (step + 1), accu_num.item() / sample_num, val_kappa, truee, predd
+    y_true = []
+    y_pred = []
+    y_score = []
 
 
-def create_lr_scheduler(optimizer,
-                        num_step: int,
-                        epochs: int,
-                        warmup=True,
-                        warmup_epochs=1,
-                        warmup_factor=1e-3,
-                        end_factor=1e-6):
-    assert num_step > 0 and epochs > 0
-    if warmup is False:
-        warmup_epochs = 0
+    for imgs, labels in tqdm(data_loader, desc="Valid/Test", leave=False):
+        imgs = imgs.to(device)
+        labels = labels.to(device)
 
-    def f(x):
-        if warmup is True and x <= (warmup_epochs * num_step):
-            alpha = float(x) / (warmup_epochs * num_step)
-            return warmup_factor * (1 - alpha) + alpha
+        logits = model(imgs)
+        probs = torch.softmax(logits, dim=1)
+        preds = torch.argmax(probs, dim=1)
+
+        y_true.append(labels.cpu())
+        y_pred.append(preds.cpu())
+        y_score.append(probs.cpu())
+
+  
+    if len(y_true) == 0:
+        raise ValueError("DataLoader vazio — nenhuma amostra encontrada.")
+
+  
+    y_true = torch.cat(y_true).numpy()
+    y_pred = torch.cat(y_pred).numpy()
+    y_score = torch.cat(y_score).numpy()
+
+   
+    acc = accuracy_score(y_true, y_pred)
+    f1 = f1_score(y_true, y_pred, average="macro", zero_division=0)
+    kappa = cohen_kappa_score(y_true, y_pred)
+
+  
+    try:
+        classes_present = np.unique(y_true)
+
+      
+        if len(classes_present) < num_classes:
+            auc = roc_auc_score(
+                y_true,
+                y_score[:, classes_present],
+                multi_class="ovr",
+                average="macro"
+            )
         else:
-            current_step = (x - warmup_epochs * num_step)
-            cosine_steps = (epochs - warmup_epochs) * num_step
-            return ((1 + math.cos(current_step * math.pi / cosine_steps)) / 2) * (1 - end_factor) + end_factor
+            auc = roc_auc_score(
+                y_true,
+                y_score,
+                multi_class="ovr",
+                average="macro"
+            )
+    except ValueError:
+        
+        auc = 0.5
 
-    return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=f)
+    
+    cm = confusion_matrix(
+        y_true,
+        y_pred,
+        labels=list(range(num_classes))
+    )
 
 
-def get_params_groups(model: torch.nn.Module, weight_decay: float = 1e-5):
-    parameter_group_vars = {"decay": {"params": [], "weight_decay": weight_decay},
-                            "no_decay": {"params": [], "weight_decay": 0.}}
+    sens_list = []
+    spec_list = []
 
-    parameter_group_names = {"decay": {"params": [], "weight_decay": weight_decay},
-                             "no_decay": {"params": [], "weight_decay": 0.}}
+    total = np.sum(cm)
 
-    for name, param in model.named_parameters():
-        #if "se.fc" in name:
-            #print(name)
-        if not param.requires_grad:
-            continue  # frozen weights
+    for i in range(num_classes):
+        tp = cm[i, i]
+        fn = np.sum(cm[i, :]) - tp
+        fp = np.sum(cm[:, i]) - tp
+        tn = total - (tp + fn + fp)
 
-        if len(param.shape) == 1 or name.endswith(".bias") or "se.fc" in name:
-            group_name = "no_decay"
-        else:
-            group_name = "decay"
+        sens = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        spec = tn / (tn + fp) if (tn + fp) > 0 else 0.0
 
-        parameter_group_vars[group_name]["params"].append(param)
-        parameter_group_names[group_name]["params"].append(name)
+        sens_list.append(sens)
+        spec_list.append(spec)
 
-    print("Param groups = %s" % json.dumps(parameter_group_names, indent=2))
-    return list(parameter_group_vars.values())
+  
+    return {
+        "acc": acc,
+        "f1": f1,
+        "auc": auc,
+        "kappa": kappa,
+        "sens": float(np.mean(sens_list)),
+        "spec": float(np.mean(spec_list)),
+        "sens_per_class": sens_list,
+        "spec_per_class": spec_list,
+        "cm": cm,
+        "y_true": y_true,
+        "y_pred": y_pred
+    }
 
