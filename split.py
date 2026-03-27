@@ -9,7 +9,7 @@ print("PREPARANDO DATASET 2D EM PASTAS (TRAIN / VAL / TEST)")
 print("="*60)
 
 
-NODULES_DIR = "NODULES_2D"
+NODULES_DIR = "NODULES"
 OUTPUT_DATASET_DIR = "dataset"
 
 classes = {
@@ -22,13 +22,13 @@ dados = []
 pacientes_por_classe = set()
 
 
-print("\n Varredura das pastas...")
+print("\n📁 Varredura das pastas...")
 
 for classe_nome, classe_id in classes.items():
     classe_path = os.path.join(NODULES_DIR, classe_nome)
 
     if not os.path.exists(classe_path):
-        print(f" Pasta não encontrada: {classe_path}")
+        print(f"⚠️ Pasta não encontrada: {classe_path}")
         continue
 
     total_classe = 0
@@ -51,12 +51,12 @@ for classe_nome, classe_id in classes.items():
                     "Malignant_lbl": classe_id
                 })
 
-    print(f" {classe_nome}: {total_classe} nódulos")
+    print(f"📁 {classe_nome}: {total_classe} nódulos")
 
 df = pd.DataFrame(dados)
 
-print(f"\n Total de nódulos: {len(df)}")
-print(f" Total de pacientes: {df['patient_id'].nunique()}")
+print(f"\n📊 Total de nódulos: {len(df)}")
+print(f"📊 Total de pacientes: {df['patient_id'].nunique()}")
 
 
 pacientes_unicos = df["patient_id"].unique()
@@ -87,7 +87,7 @@ for p in pacientes_test:
 df["split"] = df["patient_id"].map(split_map)
 
 
-print("\n Criando estrutura de pastas...")
+print("\n📂 Criando estrutura de pastas...")
 
 for split in ["train", "val", "test"]:
     for classe in classes.keys():
@@ -97,7 +97,7 @@ for split in ["train", "val", "test"]:
         )
 
 
-print("\n Copiando imagens...")
+print("\n🖼️ Copiando imagens...")
 
 for _, row in df.iterrows():
     split = row["split"]
@@ -118,13 +118,13 @@ for _, row in df.iterrows():
     destino = os.path.join(destino_paciente, os.path.basename(origem))
     shutil.copy2(origem, destino)
 
-print("\n Dataset salvo com sucesso em pastas físicas!")
+print("\n✅ Dataset salvo com sucesso em pastas físicas!")
 
 
 for root, _, files in os.walk(OUTPUT_DATASET_DIR):
     for file in files:
         if file.endswith(".png"):
             img = Image.open(os.path.join(root, file))
-            print(f"\n Imagem exemplo carregada: {img.size}")
+            print(f"\n📏 Imagem exemplo carregada: {img.size}")
             exit()
 

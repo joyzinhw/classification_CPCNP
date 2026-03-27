@@ -79,15 +79,13 @@ class Block(nn.Module):
 
 
 class ConvNeXt(nn.Module):
-    def __init__(self, in_chans: int = 3, num_classes: int = 1000, depths: list = None,
+    def __init__(self, in_chans: int = 1, num_classes: int = 1000, depths: list = None,
                  dims: list = None, drop_path_rate: float = 0., layer_scale_init_value: float = 1e-6,
                  head_init_scale: float = 1.):
         super().__init__()
         self.downsample_layers = nn.ModuleList()  # stem and 3 intermediate downsampling conv layers
-        stem = nn.Sequential(
-    nn.Conv2d(in_chans, dims[0], kernel_size=3, stride=2, padding=1), # Mudado de 4 para 2
-    LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
-)
+        stem = nn.Sequential(nn.Conv2d(in_chans, dims[0], kernel_size=4, stride=4),
+                             LayerNorm(dims[0], eps=1e-6, data_format="channels_first"))
         self.downsample_layers.append(stem)
 
         for i in range(3):
@@ -132,55 +130,35 @@ class ConvNeXt(nn.Module):
 
 
 def convnext_tiny(num_classes: int):
-    model = ConvNeXt(
-        in_chans=1,                     
-        depths=[3, 3, 9, 3],
-        dims=[96, 192, 384, 768],
-        num_classes=num_classes
-    )
+    model = ConvNeXt(depths=[3, 3, 9, 3],
+                     dims=[96, 192, 384, 768],
+                     num_classes=num_classes)
     return model
 
 
-
 def convnext_small(num_classes: int):
-    model = ConvNeXt(
-        in_chans=1,
-        depths=[3, 3, 27, 3],
-        dims=[96, 192, 384, 768],
-        num_classes=num_classes
-    )
+    model = ConvNeXt(depths=[3, 3, 27, 3],
+                     dims=[96, 192, 384, 768],
+                     num_classes=num_classes)
     return model
 
 
 def convnext_base(num_classes: int):
-    model = ConvNeXt(
-        in_chans=1,
-        depths=[3, 3, 27, 3],
-        dims=[128, 256, 512, 1024],
-        num_classes=num_classes
-    )
+    model = ConvNeXt(depths=[3, 3, 27, 3],
+                     dims=[128, 256, 512, 1024],
+                     num_classes=num_classes)
     return model
 
 
 def convnext_large(num_classes: int):
-    model = ConvNeXt(
-        in_chans=1,
-        depths=[3, 3, 27, 3],
-        dims=[192, 384, 768, 1536],
-        num_classes=num_classes
-    )
+    model = ConvNeXt(depths=[3, 3, 27, 3],
+                     dims=[192, 384, 768, 1536],
+                     num_classes=num_classes)
     return model
 
 
 def convnext_xlarge(num_classes: int):
-    model = ConvNeXt(
-        in_chans=1,
-        depths=[3, 3, 27, 3],
-        dims=[256, 512, 1024, 2048],
-        num_classes=num_classes
-    )
+    model = ConvNeXt(depths=[3, 3, 27, 3],
+                     dims=[256, 512, 1024, 2048],
+                     num_classes=num_classes)
     return model
-x = torch.randn(2, 1, 64, 64)
-model = convnext_tiny(num_classes=3)
-y = model(x)
-print(y.shape)  # esperado: [2, 3]

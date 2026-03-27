@@ -1,5 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
+import torch
 
 
 
@@ -16,7 +17,7 @@ class SE(nn.Module):
         out = self.compress(out)
         out = F.relu(out)
         out = self.excitation(out)
-        return F.sigmoid(out)
+        return torch.sigmoid(out)
 
 
 
@@ -69,7 +70,7 @@ class ResNeXt(nn.Module):
         self.is_se = is_se
         self.cardinality = cardinality
         self.channels = 64
-        self.conv1 = BN_Conv2d(3, self.channels, 7, stride=2, padding=3)
+        self.conv1 = BN_Conv2d(1, self.channels, 7, stride=2, padding=3)
         d1 = group_depth
         self.conv2 = self.___make_layers(d1, layers[0], stride=1)
         d2 = d1 * 2
@@ -78,7 +79,7 @@ class ResNeXt(nn.Module):
         self.conv4 = self.___make_layers(d3, layers[2], stride=2)
         d4 = d3 * 2
         self.conv5 = self.___make_layers(d4, layers[3], stride=2)
-        self.fc = nn.Linear(self.channels * 4, num_classes)  # 224x224 input size
+        self.fc = nn.Linear(self.channels, num_classes)  # 224x224 input size
 
     def ___make_layers(self, d, blocks, stride):
         strides = [stride] + [1] * (blocks - 1)
@@ -96,7 +97,8 @@ class ResNeXt(nn.Module):
         out = self.conv4(out)
         out = self.conv5(out)
         out = F.avg_pool2d(out, 7)
-        out = out.view(out.size(0), -1)
+        out = F.adaptive_avg_pool2d(out, (1, 1))
+        out = torch.flatten(out, 1)
         out = self.fc(out)
         return out
 
@@ -115,4 +117,3 @@ def resNeXt101_64x4d(num_classes=5):
 
 def resNeXt50_32x4d_SE(num_classes=5):
     return ResNeXt([3, 4, 6, 3], 32, 4, num_classes, is_se=True)
-
