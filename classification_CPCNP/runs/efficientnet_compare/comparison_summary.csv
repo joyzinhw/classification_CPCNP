@@ -1,0 +1,4 @@
+image_size,best_epoch,epochs_executed,best_val_score,val_auc,val_f1,val_acc,test_auc,test_f1,test_acc,test_kappa,test_sens,test_spec,run_dir
+225,3,23,0.642624,0.657346,0.608273,0.741222,0.627912,0.509035,0.671855,0.079618,0.532735,0.532735,/home/joyzinhw/classification_CPCNP/classification_CPCNP/runs/efficientnet_compare/efficientnet_b0_225
+160,1,21,0.632347,0.666415,0.552854,0.725618,0.663929,0.602556,0.706874,0.227996,0.599829,0.599829,/home/joyzinhw/classification_CPCNP/classification_CPCNP/runs/efficientnet_compare/efficientnet_b0_160
+128,9,29,0.629573,0.641357,0.602078,0.651495,0.652083,0.612327,0.643320,0.230240,0.623027,0.623027,/home/joyzinhw/classification_CPCNP/classification_CPCNP/runs/efficientnet_compare/efficientnet_b0_128

@@ -1,0 +1,9 @@
+# Recomendado: Python 3.10 ou 3.11
+
+numpy
+matplotlib
+Pillow
+scikit-learn
+tqdm
+torch
+torchvision

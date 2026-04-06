@@ -1,0 +1,57 @@
+===== INICIO DO TREINAMENTO =====
+image_size: 225
+epochs: 50
+batch_size: 32
+lr: 0.0003
+weight_decay: 0.0001
+early_stop_patience: 20
+lr_decay_patience: 5
+lr_decay_factor: 0.5
+
+Epoch 001 | Loss 0.1646 | AUC 0.6788 | F1 0.5364 | ACC 0.7269 | Score 0.6361 | LR 0.000300
+Novo melhor modelo salvo em epoch 1 | score=0.6361
+Epoch 002 | Loss 0.1511 | AUC 0.6650 | F1 0.5126 | ACC 0.7113 | Score 0.6193 | LR 0.000300
+Sem melhora por 1 epoca(s) | paciencia=20
+Epoch 003 | Loss 0.1427 | AUC 0.6573 | F1 0.6083 | ACC 0.7412 | Score 0.6426 | LR 0.000300
+Novo melhor modelo salvo em epoch 3 | score=0.6426
+Epoch 004 | Loss 0.1294 | AUC 0.6393 | F1 0.5812 | ACC 0.6515 | Score 0.6219 | LR 0.000300
+Sem melhora por 1 epoca(s) | paciencia=20
+Epoch 005 | Loss 0.1184 | AUC 0.6112 | F1 0.5612 | ACC 0.6723 | Score 0.5962 | LR 0.000300
+Sem melhora por 2 epoca(s) | paciencia=20
+Epoch 006 | Loss 0.1042 | AUC 0.5360 | F1 0.5506 | ACC 0.6359 | Score 0.5404 | LR 0.000300
+Sem melhora por 3 epoca(s) | paciencia=20
+Epoch 007 | Loss 0.0852 | AUC 0.5839 | F1 0.5571 | ACC 0.6515 | Score 0.5759 | LR 0.000300
+Sem melhora por 4 epoca(s) | paciencia=20
+Epoch 008 | Loss 0.0741 | AUC 0.5500 | F1 0.5391 | ACC 0.6346 | Score 0.5467 | LR 0.000300
+Sem melhora por 5 epoca(s) | paciencia=20
+Epoch 009 | Loss 0.0726 | AUC 0.5993 | F1 0.5401 | ACC 0.6125 | Score 0.5816 | LR 0.000150
+Sem melhora por 6 epoca(s) | paciencia=20
+Epoch 010 | Loss 0.0401 | AUC 0.5837 | F1 0.5421 | ACC 0.6710 | Score 0.5713 | LR 0.000150
+Sem melhora por 7 epoca(s) | paciencia=20
+Epoch 011 | Loss 0.0353 | AUC 0.5724 | F1 0.5648 | ACC 0.6814 | Score 0.5701 | LR 0.000150
+Sem melhora por 8 epoca(s) | paciencia=20
+Epoch 012 | Loss 0.0212 | AUC 0.5729 | F1 0.5385 | ACC 0.6710 | Score 0.5626 | LR 0.000150
+Sem melhora por 9 epoca(s) | paciencia=20
+Epoch 013 | Loss 0.0248 | AUC 0.5893 | F1 0.5535 | ACC 0.6580 | Score 0.5786 | LR 0.000150
+Sem melhora por 10 epoca(s) | paciencia=20
+Epoch 014 | Loss 0.0232 | AUC 0.5695 | F1 0.5544 | ACC 0.6905 | Score 0.5650 | LR 0.000150
+Sem melhora por 11 epoca(s) | paciencia=20
+Epoch 015 | Loss 0.0252 | AUC 0.5419 | F1 0.5289 | ACC 0.6476 | Score 0.5380 | LR 0.000075
+Sem melhora por 12 epoca(s) | paciencia=20
+Epoch 016 | Loss 0.0204 | AUC 0.5864 | F1 0.5683 | ACC 0.6645 | Score 0.5810 | LR 0.000075
+Sem melhora por 13 epoca(s) | paciencia=20
+Epoch 017 | Loss 0.0142 | AUC 0.5950 | F1 0.5655 | ACC 0.6801 | Score 0.5861 | LR 0.000075
+Sem melhora por 14 epoca(s) | paciencia=20
+Epoch 018 | Loss 0.0135 | AUC 0.6038 | F1 0.5699 | ACC 0.6684 | Score 0.5936 | LR 0.000075
+Sem melhora por 15 epoca(s) | paciencia=20
+Epoch 019 | Loss 0.0159 | AUC 0.5672 | F1 0.5763 | ACC 0.6944 | Score 0.5699 | LR 0.000075
+Sem melhora por 16 epoca(s) | paciencia=20
+Epoch 020 | Loss 0.0100 | AUC 0.5614 | F1 0.5469 | ACC 0.6853 | Score 0.5571 | LR 0.000075
+Sem melhora por 17 epoca(s) | paciencia=20
+Epoch 021 | Loss 0.0112 | AUC 0.5844 | F1 0.5652 | ACC 0.6736 | Score 0.5786 | LR 0.000037
+Sem melhora por 18 epoca(s) | paciencia=20
+Epoch 022 | Loss 0.0122 | AUC 0.5864 | F1 0.5413 | ACC 0.6827 | Score 0.5728 | LR 0.000037
+Sem melhora por 19 epoca(s) | paciencia=20
+Epoch 023 | Loss 0.0100 | AUC 0.5943 | F1 0.5559 | ACC 0.6554 | Score 0.5828 | LR 0.000037
+Sem melhora por 20 epoca(s) | paciencia=20
+Early stopping acionado na epoca 23 (melhor epoca: 3, melhor score: 0.6426)

@@ -1,0 +1,46 @@
+===== PARAMETROS =====
+model: efficientnet_b0
+image_size: 225
+epochs_configured: 50
+epochs_executed: 23
+batch_size: 32
+lr: 0.0003
+weight_decay: 0.0001
+early_stop_patience: 20
+lr_decay_patience: 5
+lr_decay_factor: 0.5
+best_score: 0.6426
+best_epoch: 3
+
+===== TRAIN_FINAL =====
+AUC: 0.8644
+ACC: 0.7978
+F1: 0.7175
+Kappa: 0.4517
+Sensibilidade: 0.6957
+Especificidade: 0.6957
+Matriz de Confusao:
+[[2343   96]
+ [ 616  466]]
+
+===== VAL_FINAL =====
+AUC: 0.6573
+ACC: 0.7412
+F1: 0.6083
+Kappa: 0.2373
+Sensibilidade: 0.6008
+Especificidade: 0.6008
+Matriz de Confusao:
+[[509  48]
+ [151  61]]
+
+===== TEST_FINAL =====
+AUC: 0.6279
+ACC: 0.6719
+F1: 0.5090
+Kappa: 0.0796
+Sensibilidade: 0.5327
+Especificidade: 0.5327
+Matriz de Confusao:
+[[481  45]
+ [208  37]]
