@@ -13,23 +13,28 @@ from Res2Net import Res2Net
 from ResNext import resNeXt50_32x4d_SE
 from EfficientNet import efficientnet_b0
 from resnet50 import resnet50
-from augmentations import NoduleAugmentation
+
 
 
 class FocalLoss(torch.nn.Module):
-    def __init__(self, gamma=2.0):
+    def __init__(self, gamma=2.0, weight=None):
         super().__init__()
         self.gamma = gamma
+        self.weight = weight
 
     def forward(self, logits, targets):
         ce_loss = torch.nn.functional.cross_entropy(
-            logits, targets, reduction='none'
+            logits,
+            targets,
+            reduction='none',
+            weight=self.weight
         )
 
         pt = torch.exp(-ce_loss)
         focal_loss = ((1 - pt) ** self.gamma) * ce_loss
 
         return focal_loss.mean()
+
 
 def main(args):
 
@@ -64,7 +69,7 @@ def main(args):
     print("📊 Distribuição TEST: ", Counter(test_set.labels))
 
 
-    # ❌ REMOVIDO sampler (CAUSAVA INSTABILIDADE)
+   
     train_loader = DataLoader(
         train_set,
         batch_size=args.batch_size,
@@ -97,12 +102,12 @@ def main(args):
 
 #     model = Res2Net(
 #     layers=[3, 4, 6, 3],
-#     num_classes=3,
+#     num_classes=2,
 #     width=16,
 #     scales=4,
 #     groups=1
 # ).to(device)
-    model = efficientnet_b0(num_classes=3).to(device)
+    model = efficientnet_b0(num_classes=2).to(device)
     # model = convnext_tiny(num_classes=3).to(device)
 
 
@@ -113,8 +118,10 @@ def main(args):
     )
 
 
-    # # ✔️ PESOS CORRIGIDOS (mais fortes)
-    # class_counts = torch.tensor([2460, 1204, 727], dtype=torch.float32)
+   #pesos para ativar para testar
+
+    # class_counts = torch.tensor([2460, 1204
+    # ], dtype=torch.float32)
 
     # weights = class_counts.sum() / class_counts   # inverso forte
     # weights = weights / weights.mean()            # normaliza
@@ -137,7 +144,7 @@ def main(args):
     val_f1s = []
     lrs = []
 
-    log_file = open("treinamento_log.txt", "w")
+    log_file = open("treinamento_log_aug_res2net.txt", "w")
     log_file.write("===== INICIO DO TREINAMENTO =====\n")
     log_file.write(f"Epochs: {args.epochs}\n")
     log_file.write(f"Batch size: {args.batch_size}\n")
@@ -275,6 +282,7 @@ def main(args):
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--root-dir", type=str, default="dataset")
     parser.add_argument("--epochs", type=int, default=20)

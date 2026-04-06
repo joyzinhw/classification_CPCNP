@@ -14,7 +14,7 @@ class NoduleAugmentation:
             return img
 
         # 🔹 rotações
-        angle = random.choice([45, 90, 135, 180])
+        angle = random.choice([ 90, 180])
         img = F.rotate(img, angle)
 
         # 🔹 flips
