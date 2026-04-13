@@ -1,4 +1,0 @@
-===== RESUMO FINAL =====
-img=160 | best_epoch=1 | val_score=0.632347 | test_auc=0.663929 | test_f1=0.602556 | test_acc=0.706874 | run_dir=/home/joyzinhw/classification_CPCNP/classification_CPCNP/runs/efficientnet_compare/efficientnet_b0_160
-img=128 | best_epoch=9 | val_score=0.629573 | test_auc=0.652083 | test_f1=0.612327 | test_acc=0.643320 | run_dir=/home/joyzinhw/classification_CPCNP/classification_CPCNP/runs/efficientnet_compare/efficientnet_b0_128
-img=225 | best_epoch=3 | val_score=0.642624 | test_auc=0.627912 | test_f1=0.509035 | test_acc=0.671855 | run_dir=/home/joyzinhw/classification_CPCNP/classification_CPCNP/runs/efficientnet_compare/efficientnet_b0_225

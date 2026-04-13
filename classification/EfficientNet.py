@@ -282,7 +282,7 @@ class EfficientNet(nn.Module):
         return self._forward_impl(x)
 
 
-def efficientnet_b0(num_classes=5):
+def efficientnet_b0(num_classes=2):
     # input image size 224x224
     return EfficientNet(width_coefficient=1.0,
                         depth_coefficient=1.0,

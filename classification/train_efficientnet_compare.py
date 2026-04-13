@@ -14,6 +14,7 @@ from tqdm import tqdm
 from dataset import NoduleDataset
 from EfficientNet import efficientnet_b0
 from train_utils import evaluate_slice_level
+from resnet50 import resnet34
 
 
 class FocalLoss(torch.nn.Module):
@@ -42,7 +43,7 @@ def parse_args():
     )
     parser.add_argument("--root-dir", type=str, default=str(project_root / "dataset"))
     parser.add_argument("--output-dir", type=str, default=str(project_root / "classification_CPCNP" / "runs" / "efficientnet_compare"))
-    parser.add_argument("--image-sizes", type=str, default="225,160,128")
+    parser.add_argument("--image-sizes", type=str, default="224")
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=3e-4)

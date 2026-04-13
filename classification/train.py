@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 from dataset import NoduleDataset
 from train_utils import evaluate_slice_level
-from ConvNext import convnext_tiny, convnext_small, convnext_base
+# from ConvNext import convnext_tiny, convneaxt_small, convnext_base
 from Res2Net import Res2Net
 from ResNext import resNeXt50_32x4d_SE
 from EfficientNet import efficientnet_b0
@@ -108,13 +108,13 @@ def main(args):
 #     groups=1
 # ).to(device)
     model = efficientnet_b0(num_classes=2).to(device)
-    # model = convnext_tiny(num_classes=3).to(device)
+    # model = convnext_tiny(num_classes=2).to(device)
 
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=args.lr,
-        weight_decay=1e-4
+        weight_decay=1e-3
     )
 
 
@@ -144,7 +144,7 @@ def main(args):
     val_f1s = []
     lrs = []
 
-    log_file = open("treinamento_log_aug_res2net.txt", "w")
+    log_file = open("treinamento_B0.txt", "w")
     log_file.write("===== INICIO DO TREINAMENTO =====\n")
     log_file.write(f"Epochs: {args.epochs}\n")
     log_file.write(f"Batch size: {args.batch_size}\n")
@@ -285,10 +285,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--root-dir", type=str, default="dataset")
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--lr", type=float, default=3e-4)
+    parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument("--device", default="cuda:0")
     args = parser.parse_args()
 
     main(args)
+
